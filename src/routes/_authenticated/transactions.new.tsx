@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Search, Trash2, Plus, Minus, X, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -70,7 +70,7 @@ function POSPage() {
   const total = afterDiscount + tax;
 
   // Stable tx code per cart session
-  const txCode = useMemo(() => generateTxCode(), []);
+  const [txCode, setTxCode] = useState(() => generateTxCode());
 
   const handlePayment = async (method: string, paid: number) => {
     if (!user) {
@@ -134,6 +134,7 @@ function POSPage() {
         cashierName: user.email,
       });
       cart.clear();
+      setTxCode(generateTxCode()); // Generate fresh code for next transaction
       qc.invalidateQueries({ queryKey: ["pos-products"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });

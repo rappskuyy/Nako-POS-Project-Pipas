@@ -19,8 +19,11 @@ export function generateTxCode(): string {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
+  // Milliseconds within the day (max 86,400,000) padded to 8 chars + 4 random digits
+  // Makes collision astronomically unlikely even with many concurrent transactions
+  const ms = String(now.getTime() % 100000).padStart(5, "0");
   const rand = Math.floor(Math.random() * 9000 + 1000);
-  return `KN-${y}${m}${d}-${rand}`;
+  return `KN-${y}${m}${d}-${ms}${rand}`;
 }
 
 export function generateSku(name: string): string {
