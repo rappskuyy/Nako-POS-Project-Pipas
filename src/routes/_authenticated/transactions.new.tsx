@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Trash2, Plus, Minus, X, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -305,6 +305,138 @@ function CategoryPill({ active, onClick, label }: { active: boolean; onClick: ()
   );
 }
 
+function QrisDisplay({ total, onConfirm, onCancel }: { total: number; onConfirm: () => void; onCancel: () => void }) {
+  const DURATION = 5 * 60; // 5 minutes
+  const [timeLeft, setTimeLeft] = useState(DURATION);
+  const [expired, setExpired] = useState(false);
+
+  useEffect(() => {
+    setTimeLeft(DURATION);
+    setExpired(false);
+    const interval = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) { clearInterval(interval); setExpired(true); return 0; }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const ss = String(timeLeft % 60).padStart(2, "0");
+  const pct = (timeLeft / DURATION) * 100;
+  const isUrgent = timeLeft <= 60;
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      {/* QRIS Header */}
+      <div className="w-full bg-[#E2001A] rounded-xl px-4 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="bg-white rounded px-1.5 py-0.5">
+            <span className="text-[#E2001A] font-black text-xs tracking-tight">QRIS</span>
+          </div>
+          <span className="text-white text-xs font-medium opacity-90">Kopi Nako</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {["#00A651","#F7941D","#2E3192","#ED1C24","#00AEEF"].map((c, i) => (
+            <div key={i} className="w-3 h-3 rounded-full" style={{ backgroundColor: c }} />
+          ))}
+        </div>
+      </div>
+
+      {/* QR Code area */}
+      <div className="relative">
+        <div className={`p-3 rounded-2xl border-2 transition-colors ${expired ? "border-red-300 bg-red-50" : "border-gray-200 bg-white"} shadow-md`}>
+          {/* Dummy QR SVG */}
+          <svg width="180" height="180" viewBox="0 0 180 180" className={expired ? "opacity-20" : ""}>
+            {/* Corner squares */}
+            <rect x="10" y="10" width="50" height="50" rx="4" fill="none" stroke="#111" strokeWidth="5"/>
+            <rect x="18" y="18" width="34" height="34" rx="2" fill="#111"/>
+            <rect x="120" y="10" width="50" height="50" rx="4" fill="none" stroke="#111" strokeWidth="5"/>
+            <rect x="128" y="18" width="34" height="34" rx="2" fill="#111"/>
+            <rect x="10" y="120" width="50" height="50" rx="4" fill="none" stroke="#111" strokeWidth="5"/>
+            <rect x="18" y="128" width="34" height="34" rx="2" fill="#111"/>
+            {/* Data modules - pattern rows */}
+            {[70,76,82,88,94,100,106,112,118,124,130,136,142,148,154,160].map((x, i) =>
+              [70,76,82,88,94,100,106,112].map((y, j) =>
+                (i + j) % 3 !== 0 ? <rect key={`${i}-${j}`} x={x} y={y} width="5" height="5" fill="#111"/> : null
+              )
+            )}
+            {[10,16,22,28,34,40,46].map((x, i) =>
+              [76,82,88,94,100,106,112,118,124,130,136,142,148,154,160].map((y, j) =>
+                (i * 3 + j) % 4 !== 1 ? <rect key={`a${i}-${j}`} x={x} y={y} width="5" height="5" fill="#111"/> : null
+              )
+            )}
+            {[120,126,132,138,144,150,156,162].map((x, i) =>
+              [76,82,88,94,100,106,112,118,124,130,136,142,148,154,160].map((y, j) =>
+                (i + j * 2) % 3 !== 2 ? <rect key={`b${i}-${j}`} x={x} y={y} width="5" height="5" fill="#111"/> : null
+              )
+            )}
+            {/* Center logo placeholder */}
+            <rect x="76" y="76" width="28" height="28" rx="4" fill="white" stroke="#ddd" strokeWidth="1"/>
+            <rect x="80" y="80" width="20" height="20" rx="3" fill="#E2001A"/>
+            <text x="90" y="93" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">QR</text>
+          </svg>
+
+          {/* Expired overlay */}
+          {expired && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-white/80">
+              <div className="text-red-500 text-3xl mb-1">⏱</div>
+              <div className="text-red-600 font-bold text-sm">QR Kedaluwarsa</div>
+              <div className="text-red-400 text-xs">Silakan muat ulang</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Amount */}
+      <div className="text-center">
+        <p className="text-xs text-muted-foreground mb-0.5">Total Pembayaran</p>
+        <p className="text-2xl font-black text-[#E2001A]">{formatRupiah(total)}</p>
+      </div>
+
+      {/* Timer */}
+      <div className="w-full">
+        <div className="flex justify-between text-xs mb-1.5">
+          <span className="text-muted-foreground">Batas waktu pembayaran</span>
+          <span className={`font-mono font-bold ${isUrgent ? "text-red-500" : "text-foreground"}`}>
+            {mm}:{ss}
+          </span>
+        </div>
+        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-1000 ${isUrgent ? "bg-red-500" : "bg-[#E2001A]"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Logos bank */}
+      <div className="flex items-center gap-2 flex-wrap justify-center">
+        {["GoPay","OVO","Dana","ShopeePay","BCA","Mandiri"].map((b) => (
+          <div key={b} className="px-2 py-0.5 rounded bg-muted text-[10px] font-medium text-muted-foreground">{b}</div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 w-full">
+        <Button variant="outline" className="flex-1" onClick={onCancel}>Batal</Button>
+        <Button
+          className="flex-1 bg-[#E2001A] hover:bg-[#c00015] text-white"
+          disabled={expired}
+          onClick={onConfirm}
+        >
+          ✓ Konfirmasi Bayar
+        </Button>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground text-center">
+        Scan QR menggunakan aplikasi e-wallet atau m-banking kamu
+      </p>
+    </div>
+  );
+}
+
 function PaymentDialog({
   open, onOpenChange, total, onConfirm,
 }: {
@@ -320,58 +452,67 @@ function PaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className={method === "qris" ? "max-w-sm" : ""}>
         <DialogHeader><DialogTitle>Pembayaran</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="bg-muted rounded-lg p-4 text-center">
-            <p className="text-xs text-muted-foreground">Total Tagihan</p>
-            <p className="text-3xl font-bold text-primary">{formatRupiah(total)}</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Metode Pembayaran</Label>
-            <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="debit">Debit</SelectItem>
-                <SelectItem value="credit">Kredit</SelectItem>
-                <SelectItem value="ewallet">E-Wallet</SelectItem>
-                <SelectItem value="qris">QRIS</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {method === "cash" && (
-            <>
-              <div className="space-y-1.5">
-                <Label>Nominal Bayar</Label>
-                <Input type="number" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="0" />
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {[50000, 100000, 150000, 200000].map((v) => (
-                    <Button key={v} type="button" size="sm" variant="outline" onClick={() => setPaid(String(v))}>
-                      {formatRupiah(v)}
+
+        {method === "qris" ? (
+          <QrisDisplay
+            total={total}
+            onConfirm={() => onConfirm("qris", total)}
+            onCancel={() => onOpenChange(false)}
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-muted rounded-lg p-4 text-center">
+              <p className="text-xs text-muted-foreground">Total Tagihan</p>
+              <p className="text-3xl font-bold text-primary">{formatRupiah(total)}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Metode Pembayaran</Label>
+              <Select value={method} onValueChange={setMethod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="debit">Debit</SelectItem>
+                  <SelectItem value="credit">Kredit</SelectItem>
+                  <SelectItem value="ewallet">E-Wallet</SelectItem>
+                  <SelectItem value="qris">QRIS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {method === "cash" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Nominal Bayar</Label>
+                  <Input type="number" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="0" />
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {[50000, 100000, 150000, 200000].map((v) => (
+                      <Button key={v} type="button" size="sm" variant="outline" onClick={() => setPaid(String(v))}>
+                        {formatRupiah(v)}
+                      </Button>
+                    ))}
+                    <Button type="button" size="sm" variant="outline" onClick={() => setPaid(String(Math.ceil(total / 1000) * 1000))}>
+                      Pas
                     </Button>
-                  ))}
-                  <Button type="button" size="sm" variant="outline" onClick={() => setPaid(String(Math.ceil(total / 1000) * 1000))}>
-                    Pas
-                  </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-between text-sm bg-green-500/10 p-3 rounded-lg">
-                <span>Kembalian</span>
-                <span className="font-bold text-green-600">{change >= 0 ? formatRupiah(change) : "-"}</span>
-              </div>
-            </>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button
-            disabled={method === "cash" && (paidNum < total || paidNum === 0)}
-            onClick={() => onConfirm(method, method === "cash" ? paidNum : total)}
-          >
-            Konfirmasi
-          </Button>
-        </DialogFooter>
+                <div className="flex justify-between text-sm bg-green-500/10 p-3 rounded-lg">
+                  <span>Kembalian</span>
+                  <span className="font-bold text-green-600">{change >= 0 ? formatRupiah(change) : "-"}</span>
+                </div>
+              </>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+              <Button
+                disabled={method === "cash" && (paidNum < total || paidNum === 0)}
+                onClick={() => onConfirm(method, method === "cash" ? paidNum : total)}
+              >
+                Konfirmasi
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
